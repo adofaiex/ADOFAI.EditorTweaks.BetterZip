@@ -1,0 +1,73 @@
+<Project>
+  <PropertyGroup>
+    <GameDir>$([System.IO.Path]::GetDirectoryName($(GameExePath)))</GameDir>
+    <GameFileName>$([System.IO.Path]::GetFileNameWithoutExtension($(GameExePath)))</GameFileName>
+    <IsWindows>true</IsWindows>
+    <PathSeparator>\</PathSeparator>
+    <SourceManagedAssembliesDir>$(GameDir)$(PathSeparator)$(GameFileName)_Data$(PathSeparator)Managed</SourceManagedAssembliesDir>
+    <ManagedAssembliesDir Condition="'$(ManagedAssembliesDir)' == ''">$(SourceManagedAssembliesDir)</ManagedAssembliesDir>
+    <CreateModPackage Condition="'$(CreateModPackage)' == ''">true</CreateModPackage>
+    <AutoLaunchGame Condition="'$(AutoLaunchGame)' == ''">false</AutoLaunchGame>
+    <IncludeSharpSevenZip Condition="'$(IncludeSharpSevenZip)' == ''">true</IncludeSharpSevenZip>
+  </PropertyGroup>
+
+  <Target Name="ValidateManagedAssemblies" BeforeTargets="ResolveAssemblyReferences">
+    <Error Text="游戏可执行文件不存在：$(GameExePath)。请设置正确的 GameExePath。"
+           Condition="'$(GameExePath)' == '' OR !Exists('$(GameExePath)')" />
+    <Error Text="找不到游戏 Managed 目录：$(ManagedAssembliesDir)。"
+           Condition="!Exists('$(ManagedAssembliesDir)')" />
+    <Error Text="游戏 Managed 目录缺少 Assembly-CSharp.dll。"
+           Condition="!Exists('$(ManagedAssembliesDir)\Assembly-CSharp.dll')" />
+    <Error Text="游戏 Managed 目录缺少 UnityModManager\0Harmony.dll。"
+           Condition="!Exists('$(ManagedAssembliesDir)\UnityModManager\0Harmony.dll')" />
+  </Target>
+
+  <Target Name="CopyToOut" AfterTargets="Build">
+    <PropertyGroup><OutDir>$(ProjectDir)out\</OutDir></PropertyGroup>
+    <RemoveDir Directories="$(OutDir)" Condition="Exists('$(OutDir)')" />
+    <MakeDir Directories="$(OutDir);$(OutDir)Resources;$(OutDir)ThirdParty;$(OutDir)ThirdParty\7-Zip\x64;$(OutDir)ThirdParty\SharpSevenZip" />
+    <ItemGroup>
+      <ModFiles Include="$(OutputPath)$(AssemblyName).dll;$(ProjectDir)Info.json" />
+      <ResourceFiles Include="$(ProjectDir)Resources\**\*" Exclude="$(ProjectDir)Resources\**\*\" />
+      <ManagedDependencyFiles Include="$(OutputPath)SharpSevenZip.dll" />
+      <ManagedDependencyFiles Include="$(OutputPath)System.Memory.dll" />
+      <ManagedDependencyFiles Include="$(OutputPath)System.Buffers.dll" />
+      <ManagedDependencyFiles Include="$(OutputPath)System.Runtime.CompilerServices.Unsafe.dll" />
+      <ManagedDependencyFiles Include="$(OutputPath)System.Numerics.Vectors.dll" Condition="Exists('$(OutputPath)System.Numerics.Vectors.dll')" />
+      <SevenZipNativeFile Include="$(OutputPath)x64\7z.dll" />
+      <SharpSevenZipLicenseFile Include="$(NuGetPackageRoot)\sharpsevenzip\2.0.109\LICENSE" />
+      <ThirdPartyFiles Include="$(ProjectDir)ThirdParty\License*;$(ProjectDir)ThirdParty\README*;$(ProjectDir)ThirdParty\SharpSevenZip\**\*;$(ProjectDir)ThirdParty\7-Zip\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ModFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ManagedDependencyFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SevenZipNativeFile)" DestinationFolder="$(OutDir)ThirdParty\7-Zip\x64" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SharpSevenZipLicenseFile)" DestinationFiles="$(OutDir)ThirdParty\SharpSevenZip\LICENSE.txt" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ResourceFiles)" DestinationFolder="$(OutDir)Resources\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ThirdPartyFiles)" DestinationFolder="$(OutDir)ThirdParty\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Message Text="Files copied to out folder: $(OutDir)" Importance="high" />
+  </Target>
+
+  <Target Name="PackageMod" AfterTargets="CopyToOut"
+          Condition="'$(OS)' == 'Windows_NT' AND '$(CreateModPackage)' == 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)scripts\PackageMod.ps1&quot; -ProjectDirectory &quot;$(MSBuildProjectDirectory)&quot; -SourceDirectory &quot;$(MSBuildProjectDirectory)\out&quot; -BuildDirectory &quot;$(MSBuildProjectDirectory)\Build&quot; -InfoPath &quot;$(MSBuildProjectDirectory)\Info.json&quot;" />
+  </Target>
+
+  <Target Name="DeployAndLaunch" AfterTargets="CopyToOut"
+          Condition="'$(GameExePath)' != '' AND Exists('$(GameExePath)')">
+    <PropertyGroup>
+      <ModsDir>$(GameDir)$(PathSeparator)Mods$(PathSeparator)$(AssemblyName)$(PathSeparator)</ModsDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(ModsDir);$(ModsDir)Resources;$(ModsDir)ThirdParty" />
+    <ItemGroup>
+      <DeployFiles Include="$(ProjectDir)out\*.*" />
+      <DeployResources Include="$(ProjectDir)out\Resources\**\*" Exclude="$(ProjectDir)out\Resources\**\*\" />
+      <DeployThirdParty Include="$(ProjectDir)out\ThirdParty\**\*" Exclude="$(ProjectDir)out\ThirdParty\**\*\" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DeployFiles)" DestinationFolder="$(ModsDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DeployResources)" DestinationFolder="$(ModsDir)Resources\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DeployThirdParty)" DestinationFolder="$(ModsDir)ThirdParty\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Message Text="Mod deployed to game directory: $(ModsDir)" Importance="high" />
+    <Exec Command="start &quot;&quot; &quot;$(GameExePath)&quot;" IgnoreExitCode="true"
+          Condition="'$(AutoLaunchGame)' == 'true' AND '$(IsWindows)' == 'true'" />
+  </Target>
+</Project>

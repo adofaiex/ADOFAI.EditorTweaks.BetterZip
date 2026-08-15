@@ -1,0 +1,14 @@
+{
+  "entries": [
+    { "key": "title", "en": "ADOFAI Editor Tweaks - BetterZip", "zh": "ADOFAI 编辑器优化 - BetterZip" },
+    { "key": "archiveIoSection", "en": "Level archives", "zh": "谱面压缩包" },
+    { "key": "patchFeatureArchiveIo", "en": "Archive compression and extraction", "zh": "压缩包压缩与解压" },
+    { "key": "legacyZipEncoding", "en": "Legacy ZIP filename encoding", "zh": "旧版 ZIP 文件名编码" },
+    { "key": "legacyZipEncodingHint", "en": "Controls filename decoding for old ZIP archives.", "zh": "控制旧 ZIP 压缩包的文件名解码方式。" },
+    { "key": "legacyZipEncodingAuto", "en": "Auto", "zh": "自动检测" },
+    { "key": "legacyZipEncodingCP949", "en": "CP949", "zh": "CP949" },
+    { "key": "legacyZipEncodingGB18030", "en": "GB18030", "zh": "GB18030" },
+    { "key": "legacyZipEncodingShiftJIS", "en": "Shift-JIS", "zh": "Shift-JIS" },
+    { "key": "legacyZipEncodingCP437", "en": "CP437", "zh": "CP437" }
+  ]
+}
